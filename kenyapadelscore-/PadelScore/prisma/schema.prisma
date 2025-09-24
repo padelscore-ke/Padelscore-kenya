@@ -1,0 +1,137 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  username   String   @unique @db.VarChar(50)
+  email      String   @unique @db.VarChar(100)
+  password   String   @db.VarChar(255)
+  role       Role
+  first_name String?  @db.VarChar(50)
+  last_name  String?  @db.VarChar(50)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  // Relations
+  created_tournaments Tournament[]
+  referee_matches     Match[]
+
+  @@map("users")
+}
+
+model Player {
+  id         Int      @id @default(autoincrement())
+  first_name String   @db.VarChar(50)
+  last_name  String   @db.VarChar(50)
+  email      String?  @db.VarChar(100)
+  phone      String?  @db.VarChar(20)
+  ranking    Int      @default(1000)
+  wins       Int      @default(0)
+  losses     Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  // Relations
+  teams_as_player1 Team[] @relation("TeamPlayer1")
+  teams_as_player2 Team[] @relation("TeamPlayer2")
+
+  @@map("players")
+}
+
+model Team {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(100)
+  player1_id  Int
+  player2_id  Int
+  ranking     Int      @default(1000)
+  wins        Int      @default(0)
+  losses      Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+
+  // Relations
+  player1      Player @relation("TeamPlayer1", fields: [player1_id], references: [id], onDelete: Cascade)
+  player2      Player @relation("TeamPlayer2", fields: [player2_id], references: [id], onDelete: Cascade)
+  team1_matches Match[] @relation("MatchTeam1")
+  team2_matches Match[] @relation("MatchTeam2")
+  won_matches   Match[] @relation("MatchWinner")
+
+  @@map("teams")
+}
+
+model Tournament {
+  id          Int                @id @default(autoincrement())
+  name        String             @db.VarChar(100)
+  description String?
+  start_date  DateTime           @db.Date
+  end_date    DateTime?          @db.Date
+  status      TournamentStatus   @default(upcoming)
+  max_teams   Int?
+  entry_fee   Decimal?           @db.Decimal(10, 2)
+  prize_pool  Decimal?           @db.Decimal(10, 2)
+  created_by  Int?
+  created_at  DateTime           @default(now())
+  updated_at  DateTime           @default(now()) @updatedAt
+
+  // Relations
+  creator User?   @relation(fields: [created_by], references: [id])
+  matches Match[]
+
+  @@map("tournaments")
+}
+
+model Match {
+  id                Int         @id @default(autoincrement())
+  tournament_id     Int
+  team1_id          Int
+  team2_id          Int
+  referee_id        Int?
+  scheduled_at      DateTime?
+  status            MatchStatus @default(scheduled)
+  court_number      Int?
+  team1_score_set1  Int         @default(0)
+  team1_score_set2  Int         @default(0)
+  team1_score_set3  Int         @default(0)
+  team2_score_set1  Int         @default(0)
+  team2_score_set2  Int         @default(0)
+  team2_score_set3  Int         @default(0)
+  winner_id         Int?
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @default(now()) @updatedAt
+
+  // Relations
+  tournament Tournament @relation(fields: [tournament_id], references: [id], onDelete: Cascade)
+  team1      Team       @relation("MatchTeam1", fields: [team1_id], references: [id], onDelete: Cascade)
+  team2      Team       @relation("MatchTeam2", fields: [team2_id], references: [id], onDelete: Cascade)
+  referee    User?      @relation(fields: [referee_id], references: [id])
+  winner     Team?      @relation("MatchWinner", fields: [winner_id], references: [id])
+
+  @@map("matches")
+}
+
+enum Role {
+  admin
+  referee
+}
+
+enum TournamentStatus {
+  upcoming
+  active
+  completed
+}
+
+enum MatchStatus {
+  scheduled
+  in_progress
+  completed
+  cancelled
+}
